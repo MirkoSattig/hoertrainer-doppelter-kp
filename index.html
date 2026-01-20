@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doppelter Kontrapunkt Trainer</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --success: #27ae60;
+            --error: #c0392b;
+            --bg: #ecf0f1;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .app-container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 900px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 30px;
+            text-align: center;
+        }
+
+        /* Header & Stats */
+        header {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #7f8c8d;
+        }
+
+        /* Media Area */
+        .media-area {
+            margin: 20px 0;
+            min-height: 100px;
+        }
+
+        audio {
+            width: 80%;
+            margin-bottom: 15px;
+        }
+
+        .score-box {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            background: #fff;
+            min-height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .score-box img {
+            max-width: 100%;
+            height: auto;
+            max-height: 500px;
+            display: block;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 5px;
+            font-weight: bold;
+        }
+
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: white; }
+
+        .btn-yes { background: var(--success); color: white; }
+        .btn-yes:hover { opacity: 0.9; transform: scale(1.02); }
+
+        .btn-no { background: var(--error); color: white; }
+        .btn-no:hover { opacity: 0.9; transform: scale(1.02); }
+
+        .btn-nav { background: var(--accent); color: white; font-size: 18px; padding: 15px 30px; }
+        .btn-nav:hover { background: #2980b9; }
+
+        .btn-inv { background: #f39c12; color: white; min-width: 250px; }
+        .btn-inv:hover { background: #d35400; }
+
+        /* Logic States */
+        .hidden { display: none !important; }
+
+        .feedback-area {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            animation: fadeIn 0.5s;
+        }
+
+        .feedback-correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .feedback-wrong { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .final-screen {
+            text-align: center;
+            padding: 50px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="quiz-app">
+    <header>
+        <div class="title">Höraufgabe Doppelter Kontrapunkt</div>
+        <div class="stats">
+            <span id="progress-txt">Aufgabe 1/10</span> | 
+            <span id="score-txt">Richtig: 0</span>
+        </div>
+    </header>
+
+    <div id="game-interface">
+        <h2 id="task-title">Aufgabe</h2>
+        <p>Hören Sie sich das Beispiel an. Ist der Kontrapunkt fehlerfrei umkehrbar?</p>
+
+        <div class="media-area">
+            <p id="audio-label" style="font-size: 0.9em; color: #666;">Originalversion</p>
+            <audio id="audio-player" controls>
+                <source src="" type="audio/mpeg">
+                Ihr Browser unterstützt kein Audio.
+            </audio>
+            
+            <br>
+            <button class="btn btn-outline" id="btn-show-score" onclick="toggleScore()">Noten anzeigen</button>
+        </div>
+
+        <div id="score-wrapper" class="score-box hidden">
+            <img id="score-img" src="" alt="Notenbeispiel">
+        </div>
+
+        <div id="decision-buttons" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            <button class="btn btn-yes" onclick="checkAnswer(true)">Ja</button>
+            <button class="btn btn-no" onclick="checkAnswer(false)">Nein</button>
+        </div>
+
+        <div id="feedback-container" class="hidden">
+            <div id="feedback-msg" class="feedback-area"></div>
+            
+            <div style="margin-top: 20px;">
+                <button id="btn-toggle-inv" class="btn btn-inv" onclick="toggleInversion()">Umkehrung anzeigen & hören</button>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button class="btn btn-nav" onclick="nextTask()">Weiter &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="end-screen" class="final-screen hidden">
+        <h1>Training beendet!</h1>
+        <p style="font-size: 1.2em;">Sie haben <span id="final-score"></span> von 10 Aufgaben richtig analysiert.</p>
+        <button class="btn btn-nav" onclick="location.reload()">Neustarten</button>
+    </div>
+</div>
+
+<script>
+    // DATENBANK DER AUFGABEN
+    // works: true (funktioniert), false (funktioniert nicht)
+    // KORRIGIERT: Aufgabe 2, 6, 8 sind false. Aufgabe 5 ist true.
+    const tasks = [
+        {
+            id: 1,
+            works: true,
+            audioOrig: "Audio/Ag1_Dubois-d_Orig.mp3",
+            audioInv:  "Audio/Ag1_Dubois-d_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-1_Dubois-d_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-1_Dubois-d_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-1_Dubois-d_Inv_annot.png"
+        },
+        {
+            id: 2,
+            works: false, // Funktioniert nicht
+            audioOrig: "Audio/Ag2_Bach-1080_Orig.mp3",
+            audioInv:  "Audio/Ag2_Bach-1080_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-2_BWV-1080_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-2_BWV-1080_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-2_BWV-1080_Inv_annot.png"
+        },
+        {
+            id: 3,
+            works: true,
+            audioOrig: "Audio/Ag3_Dubois-a_Orig.mp3",
+            audioInv:  "Audio/Ag3_Dubois-a_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-3_Dubois-a_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-3_Dubois-a_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-3_Dubois-a_Inv_annot.png"
+        },
+        {
+            id: 4,
+            works: true,
+            audioOrig: "Audio/Ag4_Dubois-Es_Orig.mp3",
+            audioInv:  "Audio/Ag4_Dubois-Es_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-4_Dubois-Es_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-4_Dubois-Es_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-4_Dubois-Es_Inv_annot.png"
+        },
+        {
+            id: 5,
+            works: true, // KORRIGIERT: Funktioniert DOCH (Userwunsch)
+            audioOrig: "Audio/Ag5_Dubois-G_Orig.mp3",
+            audioInv:  "Audio/Ag5_Dubois-G_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-5_Dubois-G_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-5_Dubois-G_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-5_Dubois-G_Inv_annot.png"
+        },
+        {
+            id: 6,
+            works: false, // KORRIGIERT: Funktioniert NICHT (Userwunsch)
+            audioOrig: "Audio/Ag6_Bach-E_Orig.mp3",
+            audioInv:  "Audio/Ag6_Bach-E_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-6_Bach-E_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-6_Bach-E_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-6_Bach-E_Inv_annot.png"
+        },
+        {
+            id: 7,
+            works: true,
+            audioOrig: "Audio/Ag7_Dubois-C_Orig.mp3",
+            audioInv:  "Audio/Ag7_Dubois-C_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-7_Dubois-C_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-7_Dubois-C_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-7_Dubois-C_Inv_annot.png"
+        },
+        {
+            id: 8,
+            works: false, // Funktioniert nicht
+            audioOrig: "Audio/Ag8_Dubois-F_Orig.mp3",
+            audioInv:  "Audio/Ag8_Dubois-F_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-8_Dubois-F_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-8_Dubois-F_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-8_Dubois-F_Inv_annot.png"
+        },
+        {
+            id: 9,
+            works: true,
+            audioOrig: "Audio/Ag9_Bach-As_Orig.mp3",
+            audioInv:  "Audio/Ag9_Bach-As_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-9_Bach-As_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-9_Bach-As_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-9_Bach-As_Inv_annot.png"
+        },
+        {
+            id: 10,
+            works: true,
+            audioOrig: "Audio/Ag10_Dubois-chrom_Orig.mp3",
+            audioInv:  "Audio/Ag10_Dubois-chrom_Inv.mp3",
+            imgOrig:   "Bilddateien/Ag-10_Dubois-chrom_Orig.png",
+            imgAnnot:  "Bilddateien/Ag-10_Dubois-chrom_Orig_annot.png",
+            imgInv:    "Bilddateien/Ag-10_Dubois-chrom_Inv_annot.png"
+        }
+    ];
+
+    // STATUS VARIABLES
+    let currentTaskIndex = 0;
+    let score = 0;
+    let hasAnswered = false;
+    let isShowingInversion = false; // Status für Toggle-Button
+
+    // DOM ELEMENTS
+    const ui = {
+        title: document.getElementById('task-title'),
+        audio: document.getElementById('audio-player'),
+        audioLabel: document.getElementById('audio-label'),
+        scoreWrapper: document.getElementById('score-wrapper'),
+        scoreImg: document.getElementById('score-img'),
+        btnShowScore: document.getElementById('btn-show-score'),
+        decisionBtns: document.getElementById('decision-buttons'),
+        feedbackContainer: document.getElementById('feedback-container'),
+        feedbackMsg: document.getElementById('feedback-msg'),
+        btnToggleInv: document.getElementById('btn-toggle-inv'),
+        progressTxt: document.getElementById('progress-txt'),
+        scoreTxt: document.getElementById('score-txt'),
+        gameInterface: document.getElementById('game-interface'),
+        endScreen: document.getElementById('end-screen'),
+        finalScore: document.getElementById('final-score')
+    };
+
+    // INIT
+    function init() {
+        loadTask(0);
+    }
+
+    function loadTask(index) {
+        currentTaskIndex = index;
+        hasAnswered = false;
+        isShowingInversion = false; // Reset Toggle
+        const task = tasks[index];
+
+        // Reset UI
+        ui.title.innerText = "Aufgabe " + task.id;
+        ui.progressTxt.innerText = "Aufgabe " + (index + 1) + " / " + tasks.length;
+        
+        // Reset Audio auf Original
+        ui.audio.src = task.audioOrig;
+        ui.audioLabel.innerText = "Originalversion";
+        ui.audio.load();
+        
+        // Noten verstecken & Source auf clean Original setzen
+        ui.scoreWrapper.classList.add('hidden');
+        ui.scoreImg.src = task.imgOrig;
+        ui.btnShowScore.innerText = "Noten anzeigen";
+        ui.btnShowScore.disabled = false;
+        ui.btnShowScore.classList.remove('hidden');
+
+        // Buttons und Feedback zurücksetzen
+        ui.decisionBtns.classList.remove('hidden');
+        ui.feedbackContainer.classList.add('hidden');
+        
+        // Toggle Button Reset
+        ui.btnToggleInv.innerText = "Umkehrung anzeigen & hören";
+        ui.btnToggleInv.classList.remove('btn-outline'); 
+        ui.btnToggleInv.classList.add('btn-inv');
+    }
+
+    // INTERACTION
+    window.toggleScore = function() {
+        if(ui.scoreWrapper.classList.contains('hidden')) {
+            ui.scoreWrapper.classList.remove('hidden');
+            ui.btnShowScore.innerText = "Noten verbergen";
+        } else {
+            ui.scoreWrapper.classList.add('hidden');
+            ui.btnShowScore.innerText = "Noten anzeigen";
+        }
+    };
+
+    window.checkAnswer = function(userSaysWorks) {
+        if(hasAnswered) return;
+        hasAnswered = true;
+
+        const task = tasks[currentTaskIndex];
+        const isCorrect = (userSaysWorks === task.works);
+
+        // Score update
+        if(isCorrect) score++;
+        ui.scoreTxt.innerText = "Richtig: " + score;
+
+        // Feedback UI
+        ui.decisionBtns.classList.add('hidden');
+        ui.feedbackContainer.classList.remove('hidden');
+        
+        // Zeige annotiertes Original (als Ausgangspunkt für Feedback)
+        ui.scoreWrapper.classList.remove('hidden');
+        ui.scoreImg.src = task.imgAnnot;
+        ui.btnShowScore.classList.add('hidden'); // Brauchen wir jetzt nicht mehr
+
+        // Feedback Text
+        if(isCorrect) {
+            ui.feedbackMsg.innerHTML = "<h3>Richtig!</h3>" + 
+                (task.works ? "Dieser Kontrapunkt ist umkehrbar." : "Hier entstehen im doppelten Kontrapunkt unvorbereitete Quarten.");
+            ui.feedbackMsg.className = "feedback-area feedback-correct";
+        } else {
+            ui.feedbackMsg.innerHTML = "<h3>Leider falsch.</h3>" + 
+                (task.works ? "Dieser Kontrapunkt ist umkehrbar." : "Hier verstecken sich in der Umkehrung Satzfehler.");
+            ui.feedbackMsg.className = "feedback-area feedback-wrong";
+        }
+    };
+
+    // NEUE TOGGLE FUNKTION
+    window.toggleInversion = function() {
+        const task = tasks[currentTaskIndex];
+        
+        if(!isShowingInversion) {
+            // Zeige Umkehrung
+            ui.scoreImg.src = task.imgInv;
+            ui.audio.src = task.audioInv;
+            ui.audioLabel.innerText = "Umkehrung (Inversion)";
+            
+            // Button Status ändern
+            ui.btnToggleInv.innerText = "Original anzeigen & hören";
+            
+            isShowingInversion = true;
+        } else {
+            // Zurück zum (annotierten) Original
+            ui.scoreImg.src = task.imgAnnot;
+            ui.audio.src = task.audioOrig;
+            ui.audioLabel.innerText = "Originalversion (Annotiert)";
+            
+            // Button Status zurücksetzen
+            ui.btnToggleInv.innerText = "Umkehrung anzeigen & hören";
+            
+            isShowingInversion = false;
+        }
+        
+        // Audio abspielen beim Wechseln
+        ui.audio.load();
+        ui.audio.play();
+    };
+
+    window.nextTask = function() {
+        if(currentTaskIndex < tasks.length - 1) {
+            loadTask(currentTaskIndex + 1);
+        } else {
+            showEndScreen();
+        }
+    };
+
+    function showEndScreen() {
+        ui.gameInterface.classList.add('hidden');
+        ui.endScreen.classList.remove('hidden');
+        ui.finalScore.innerText = score;
+    }
+
+    // Start
+    init();
+
+</script>
+
+</body>
+</html>
